@@ -12,7 +12,9 @@ st.title("📊 QRC Dashboard")
 # =========================
 # LOAD MASTER DATA
 # =========================
-master_df = pd.read_excel("Service_TAT_Annexure.xlsx")
+master_df = pd.read_excel(
+    "C:\\Users\\Bittu Sharma\\OneDrive\\Desktop\\QRC\\Service_TAT_Annexure.xlsx"
+)
 
 master_df.columns = master_df.columns.str.strip().str.lower()
 
@@ -34,21 +36,46 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file:
 
-    # =========================
-    # READ REPORT FILE
-    # =========================
     report_df = pd.read_excel(uploaded_file)
     report_df.columns = report_df.columns.str.strip().str.lower()
 
+    # =========================
+    # REMOVE DUPLICATE COLUMN NAMES
+    # =========================
+    report_df = report_df.loc[:, ~report_df.columns.duplicated()]
+
+    # =========================
+    # HANDLE DUPLICATE COLUMN (AE, AF)
+    # =========================
+    cols = list(report_df.columns)
+
+    # AE = Query Category
+    if len(cols) >= 31:
+        report_df['query category (cs, escalation & gro)'] = report_df.iloc[:, 30]
+
+    # AF = Query Sub-category
+    if len(cols) >= 32:
+        report_df['query sub-category'] = report_df.iloc[:, 31]
+
+    # =========================
+    # RENAME
+    # =========================
     report_df.rename(columns={
         'query sub-category': 'sub_category',
         'query category (cs, escalation & gro)': 'query_category',
         'agent': 'agent',
         'name type': 'type',
-        'created ti': 'created_ti',
-        'resolved t': 'resolved_t',
-        'description': 'description'
+        'created time': 'created_time',
+        'resolved time': 'resolved_time',
+        'description': 'description',
+        'ticket id': 'ticket_id'
     }, inplace=True)
+
+    # =========================
+    # REMOVE DUPLICATE TICKET ID
+    # =========================
+    if 'ticket_id' in report_df.columns:
+        report_df = report_df.drop_duplicates(subset=['ticket_id'])
 
     # =========================
     # NORMALIZE QUERY CATEGORY
@@ -72,16 +99,16 @@ if uploaded_file:
     # =========================
     # DATETIME CONVERSION
     # =========================
-    report_df['created_ti'] = pd.to_datetime(report_df['created_ti'], errors='coerce')
-    report_df['resolved_t'] = pd.to_datetime(report_df['resolved_t'], errors='coerce')
+    report_df['created_time'] = pd.to_datetime(report_df['created_time'], errors='coerce')
+    report_df['resolved_time'] = pd.to_datetime(report_df['resolved_time'], errors='coerce')
 
     # =========================
-    # MERGE WITH MASTER (OLD LOGIC)
+    # MERGE WITH MASTER
     # =========================
     df = report_df.merge(
-        master_df[['sub_category', 'tat_days', 'qrc_type']],
+        master_df[['sub_category','qrc_type','tat_days']],
         on='sub_category',
-        how='left'
+        how='left',
     )
 
     # =========================
@@ -94,7 +121,7 @@ if uploaded_file:
     df.loc[mask_blank_subcat, ['tat_days', 'qrc_type']] = pd.NA
 
     # =========================
-    # COLLECTION ISSUE → COMPLAINT OVERRIDE (OLD)
+    # COLLECTION ISSUE → COMPLAINT OVERRIDE
     # =========================
     mask_collection_issue = (
         (df['query_category'] == 'collection issue') &
@@ -106,33 +133,34 @@ if uploaded_file:
     df.loc[mask_collection_issue, 'qrc_type'] = 'Complaint'
 
     # =====================================================
-    # 🔥 NEW LOGIC – ONLY FOR "Cancellation of loan after disbursal"
+    # NEW LOGIC – Cancellation of loan after disbursal
     # =====================================================
     def override_qrc_and_tat(row):
 
         if str(row.get('sub_category', '')).strip().lower() != 'cancellation of loan after disbursal':
-            return row['qrc_type'], row['tat_days']   # 👈 PURANA LOGIC SAFE
+            return row['qrc_type'], row['tat_days']
 
         mail = str(row.get('description', '')).lower()
 
-        # STRONG COMPLAINT SIGNALS
+        # IGNORE DISCLAIMER PART
+        mail = mail.split("disclaimer")[0]
+
         complaint_keywords = [
             'fraud', 'fraudulent', 'unauthorized', 'without consent',
-            'mis-selling', 'misselling', 'cheated', 'scam',
-            'legal', 'legal notice', 'lawyer', 'court',
-            'consumer', 'ombudsman', 'rbi', 'fir', 'police',
-            'dispute', 'disputed', 'harassment', 'illegal', 'fake'
+            'mis-selling', 'misselling of course','misselling of loan',
+            'fir', 'police','fake promisses', 'job gurantee',
+            'dpd','delayed payment','undue recovery practice',
+            'collection harassment','agent misbehaviour','abuse',
+            'dispute','harassment','fake',
+            'cibil rectification','cibil dispute','cibil issue'
         ]
 
         for word in complaint_keywords:
             if word in mail:
-                return 'Complaint', 15   # ✅ Complaint = 15 days
+                return 'Complaint', 15
 
-        
-                return 'Request', 2      # ✅ Request = 2 days
+        return 'Request', 2
 
-        
-    # 👇 ONLY THIS LINE IS DIFFERENT
     df[['qrc_type', 'tat_days']] = df.apply(
         lambda x: pd.Series(override_qrc_and_tat(x)),
         axis=1
@@ -142,7 +170,7 @@ if uploaded_file:
     # ACTUAL TAT (DAYS)
     # =========================
     df['actual_tat_days'] = (
-        (df['resolved_t'] - df['created_ti'])
+        (df['resolved_time'] - df['created_time'])
         .dt.total_seconds() / 86400
     ).round(2)
 
@@ -150,7 +178,7 @@ if uploaded_file:
     # TAT STATUS LOGIC
     # =========================
     def tat_status_logic(row):
-        if pd.isna(row['resolved_t']):
+        if pd.isna(row['resolved_time']):
             return "Unresolved"
         elif pd.notna(row['tat_days']) and row['actual_tat_days'] <= row['tat_days']:
             return "Within TAT"
@@ -258,4 +286,3 @@ if uploaded_file:
         file_name="TAT_Complete_Report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
