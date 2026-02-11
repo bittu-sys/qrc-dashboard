@@ -143,7 +143,7 @@ if uploaded_file:
         mail = str(row.get('description', '')).lower()
 
         # IGNORE DISCLAIMER PART
-        mail = mail.split("disclaimer")[0]
+        mail = re.split(r'disclaimer', mail, flags=re.IGNORECASE)[0]
 
         complaint_keywords = [
             'fraud', 'fraudulent', 'without consent',
@@ -286,5 +286,6 @@ if uploaded_file:
         file_name="TAT_Complete_Report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
