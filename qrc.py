@@ -156,7 +156,7 @@ if uploaded_file:
         ]
 
         for word in complaint_keywords:
-            if word in mail:
+            if re.search(rf'\b{re.escape(word)}\b', mail):
                 return 'Complaint', 15
 
         return 'Request', 2
@@ -286,6 +286,7 @@ if uploaded_file:
         file_name="TAT_Complete_Report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
 
