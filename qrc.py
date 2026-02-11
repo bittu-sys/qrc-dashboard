@@ -13,7 +13,7 @@ st.title("📊 QRC Dashboard")
 # LOAD MASTER DATA
 # =========================
 master_df = pd.read_excel(
-    "C:\\Users\\Bittu Sharma\\OneDrive\\Desktop\\QRC\\Service_TAT_Annexure.xlsx"
+    "Service_TAT_Annexure.xlsx"
 )
 
 master_df.columns = master_df.columns.str.strip().str.lower()
@@ -286,3 +286,4 @@ if uploaded_file:
         file_name="TAT_Complete_Report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
