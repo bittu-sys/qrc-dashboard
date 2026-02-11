@@ -146,7 +146,7 @@ if uploaded_file:
         mail = mail.split("disclaimer")[0]
 
         complaint_keywords = [
-            'fraud', 'fraudulent', 'unauthorized', 'without consent',
+            'fraud', 'fraudulent', 'without consent',
             'mis-selling', 'misselling of course','misselling of loan',
             'fir', 'police','fake promisses', 'job gurantee',
             'dpd','delayed payment','undue recovery practice',
@@ -286,4 +286,5 @@ if uploaded_file:
         file_name="TAT_Complete_Report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
